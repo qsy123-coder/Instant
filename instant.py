@@ -9,7 +9,7 @@ app = FastAPI()
 def instant():
     # 修改点：传入 base_url 指向中转服务器
     client = OpenAI(
-        api_key=os.environ.get("OPENAI_API_KEY"), # 从环境变量读取
+        api_key=os.environ.get(process.env.OPENAI_API_KEY), # 从环境变量读取
         base_url="https://api.siliconflow.cn/v1"  # 替换为你中转站的地址
     )
     
@@ -27,6 +27,6 @@ def instant():
     )
     
     reply = response.choices[0].message.content.replace("\n", "<br/>")
-     html = f"<html><head><title>Live in an Instant!</title></head><body><p>{reply}</p></body></html>"
+    html = f"<html><head><title>Live in an Instant!</title></head><body><p>{reply}</p></body></html>"
     return html
     
