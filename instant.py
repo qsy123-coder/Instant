@@ -2,34 +2,37 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from openai import OpenAI
 import os
-from dotenv import load_dotenv
-
-# 自动寻找 .env 文件（本地）或读取系统变量（Vercel）
-load_dotenv() 
 
 app = FastAPI()
 
-# 建议将 Client 放在函数外部，这样可以复用连接，提高性能
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"), 
-    base_url="https://api.siliconflow.cn/v1"
-)
-
 @app.get("/", response_class=HTMLResponse)
 def instant():
-    # 检查 Key 是否读取成功的简单调试逻辑
-    api_key = os.getenv("OPENAI_API_KEY")
+    # 1. 运行时获取 Key
+    api_key = os.environ.get("OPENAI_API_KEY")
+    
+    # 2. 增加防御性判断，防止直接 Crash
     if not api_key:
-        return "Error: API Key not found in environment variables."
+        return "<html><body><h1>Configuration Error</h1><p>API Key is missing in Vercel settings.</p></body></html>"
 
-    message = "You are on a website that has just been deployed... reply with enthusiasm!"
-    
-    # 注意：DeepSeek 的模型名称通常为 deepseek-ai/DeepSeek-V3 
-    # 请确认 SiliconFlow 平台上该模型的准确 ID
-    response = client.chat.completions.create(
-        model="deepseek-ai/DeepSeek-V3", 
-        messages=[{"role": "user", "content": message}]
-    )
-    
-    reply = response.choices[0].message.content.replace("\n", "<br/>")
-    return f"<html><body><p>{reply}</p></body></html>"
+    try:
+        # 在函数内部初始化
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.siliconflow.cn/v1"
+        )
+        
+        message = "You are on a website that has just been deployed! Reply with enthusiasm."
+        
+        # 3. 检查模型名称：SiliconFlow 常见的 ID 是 deepseek-ai/DeepSeek-V3
+        response = client.chat.completions.create(
+            model="deepseek-ai/DeepSeek-V3", 
+            messages=[{"role": "user", "content": message}],
+            timeout=15.0 # 建议加上超时，防止 Vercel 函数运行超时（默认 10s）
+        )
+        
+        reply = response.choices[0].message.content.replace("\n", "<br/>")
+        return f"<html><body><p>{reply}</p></body></html>"
+        
+    except Exception as e:
+        # 将错误捕获并返回，而不是让函数 Crash
+        return f"<html><body><h1>Runtime Error</h1><p>{str(e)}</p></body></html>"
